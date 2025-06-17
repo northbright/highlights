@@ -1,0 +1,28 @@
+{
+    "op": {
+        "file":            "op.jpg",
+        "duration":        3,
+        "fade_out_duration": 1,
+        "subtitle":        "Good Times with Maomi & Mimao",
+        "fontSize":        15
+    },
+    "ed": {
+        "file":            "ed.jpg",
+        "duration":        3,
+        "fade_out_duration": 1,
+        "subtitle":        "Mimao likes lying on father's bed...😂\\nMusic by penguinmusic: Better Day",
+        "font_size":        13
+    },
+    "clips": [
+        {"file": "01.MP4", "start": "", "end": "00:00:05", "subtitle": "Mido's tickling Mimao and he's enjoying...", "font_size": 13},
+        {"file": "02.MOV", "start": "", "end": "", "subtitle": "Mimao's playing the toy.", "font_size": 13},
+        {"file": "03.MOV", "start": "00:00:01", "end": "00:00:09", "subtitle": "It's hard to brush Maomi's teeth...", "font_size": 13}
+    ],
+    "bgm": "penguinmusic-Better Day.mp3",
+    "output": {
+        "file": "output.mp4",
+        "w":    720,
+        "h":    960,
+        "fps":  30
+    }
+}
