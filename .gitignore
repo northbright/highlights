@@ -1,0 +1,72 @@
+# Ignore All
+*
+# Unignore All Sub dirs
+!*/
+
+# Unignore Files
+# --------------------------
+
+# gitignore itself
+!.gitignore
+
+# License
+!LICENSE
+
+# Markdown
+!*.md
+
+# Text
+!*.txt
+
+# Shell
+!*.sh
+
+# Golang
+!*.go
+!go.mod
+!go.sum
+
+# Configuration
+!*.json
+!*.yml
+!*.yaml
+# Ignore config.json(dev or product env) for security purpose
+# You may use a config.example.json instead
+config.json
+
+# Cert
+!*.pem
+
+# HTML
+!*.html
+!*.js
+!*.css
+!*.jpg
+!*.png
+!*.gif
+
+# PDF
+!*.pdf
+
+# CSV
+!*.csv
+
+# Vue dist
+/dist
+
+# Templates
+!*.tmpl
+
+# Media Files
+!*.mp4
+!*.MP4
+!*.MOV
+!*.mov
+!*.mp3
+!*.MP3
+!*.m4a
+!*.M4A
+
+# SRT
+!*.srt
+!*.SRT

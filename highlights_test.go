@@ -2,6 +2,7 @@ package highlights_test
 
 import (
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/northbright/highlights"
@@ -17,7 +18,7 @@ func Example() {
 		return
 	}
 
-	if err = h.Make(dir); err != nil {
+	if err = h.Make(dir, os.Stdout, os.Stderr); err != nil {
 		log.Printf("h.Make() error: %v", err)
 	}
 	log.Printf("h.Make() succeeded")

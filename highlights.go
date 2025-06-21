@@ -62,7 +62,7 @@ func LoadJSON(f string) (*Highlights, error) {
 	return Load(buf)
 }
 
-func (h *Highlights) Make(dir string) error {
+func (h *Highlights) GenerateFFmpegCmd() (*ffcmd.FFmpeg, error) {
 	// Create ffmpeg command with output file.
 	ffmpeg := ffcmd.New(h.Out.File, true)
 
@@ -90,7 +90,7 @@ func (h *Highlights) Make(dir string) error {
 		createCmd, err := ffcmd.NewCreateOneSubSRTCmdForImageClip(srtFile, h.OP.Subtitle, float32(h.OP.Duration))
 		if err != nil {
 			log.Printf("ffcmd.NewCreateOneSubSRTCmdForImageClip() error: %v", err)
-			return err
+			return nil, err
 		}
 		// Add command to create SRT file as ffmpeg's pre-commands(set-up commmands).
 		ffmpeg.AddPreCmd(createCmd)
@@ -98,7 +98,7 @@ func (h *Highlights) Make(dir string) error {
 		removeCmd, err := ffcmd.NewRemoveOneSubSRTCmd(srtFile)
 		if err != nil {
 			log.Printf("ffcmd.NewRemoveOneSubSRTCmd() error: %v", err)
-			return err
+			return nil, err
 		}
 		// Add command to remove created file as ffmpeg's post-commands(clean-up commands).
 		ffmpeg.AddPostCmd(removeCmd)
@@ -144,7 +144,7 @@ func (h *Highlights) Make(dir string) error {
 		createCmd, err := ffcmd.NewCreateOneSubSRTCmdForImageClip(srtFile, h.ED.Subtitle, float32(h.ED.Duration))
 		if err != nil {
 			log.Printf("ffcmd.NewCreateOneSubSRTCmdForImageClip() error: %v", err)
-			return err
+			return nil, err
 		}
 		// Add command to create SRT file as ffmpeg's pre-commands(set-up commmands).
 		ffmpeg.AddPreCmd(createCmd)
@@ -152,7 +152,7 @@ func (h *Highlights) Make(dir string) error {
 		removeCmd, err := ffcmd.NewRemoveOneSubSRTCmd(srtFile)
 		if err != nil {
 			log.Printf("ffcmd.NewRemoveOneSubSRTCmd() error: %v", err)
-			return err
+			return nil, err
 		}
 		// Add command to remove created file as ffmpeg's post-commands(clean-up commands).
 		ffmpeg.AddPostCmd(removeCmd)
@@ -221,20 +221,20 @@ func (h *Highlights) Make(dir string) error {
 				start, err := ffcmd.NewTimestamp(c.Start)
 				if err != nil {
 					log.Printf("get start timestamp error: %v", err)
-					return err
+					return nil, err
 				}
-				trim += fmt.Sprintf("start=%s:", start.Second())
-				atrim += fmt.Sprintf("start=%s:", start.Second())
+				trim += fmt.Sprintf("start=%s:", start.SecondStr())
+				atrim += fmt.Sprintf("start=%s:", start.SecondStr())
 			}
 
 			if c.End != "" {
 				end, err := ffcmd.NewTimestamp(c.End)
 				if err != nil {
 					log.Printf("get end timestamp error: %v", err)
-					return err
+					return nil, err
 				}
-				trim += fmt.Sprintf("end=%s", end.Second())
-				atrim += fmt.Sprintf("end=%s", end.Second())
+				trim += fmt.Sprintf("end=%s", end.SecondStr())
+				atrim += fmt.Sprintf("end=%s", end.SecondStr())
 			} else {
 				trim = strings.TrimSuffix(trim, ":")
 				atrim = strings.TrimSuffix(atrim, ":")
@@ -257,7 +257,7 @@ func (h *Highlights) Make(dir string) error {
 			createCmd, err := ffcmd.NewCreateOneSubSRTCmd(srtFile, c.File, c.Subtitle, c.Start, c.End)
 			if err != nil {
 				log.Printf("ffcmd.NewCreateOneSubSRTCmd() error: %v", err)
-				return err
+				return nil, err
 			}
 			// Add command to create SRT file as ffmpeg's pre-commands(set-up commmands).
 			ffmpeg.AddPreCmd(createCmd)
@@ -265,7 +265,7 @@ func (h *Highlights) Make(dir string) error {
 			removeCmd, err := ffcmd.NewRemoveOneSubSRTCmd(srtFile)
 			if err != nil {
 				log.Printf("ffcmd.NewRemoveOneSubSRTCmd() error: %v", err)
-				return err
+				return nil, err
 			}
 			// Add command to remove created file as ffmpeg's post-commands(clean-up commands).
 			ffmpeg.AddPostCmd(removeCmd)
@@ -325,19 +325,28 @@ func (h *Highlights) Make(dir string) error {
 	ffmpeg.MapByOutput(concatFC, 0)
 	ffmpeg.MapByOutput(bgmFC, 0)
 
-	// Run
-	err := ffmpeg.Run(dir, func(stdout, stderr io.ReadCloser) error {
-		buf, _ := io.ReadAll(stdout)
-		log.Printf("stdout:\n%s\n", buf)
+	return ffmpeg, nil
+}
 
-		buf, _ = io.ReadAll(stderr)
-		log.Printf("stderr:\n%s\n", buf)
-
-		return nil
-	})
-
+func (h *Highlights) Make(dir string, stdout, stderr io.Writer) error {
+	// Generate FFmpeg command.
+	ffmpeg, err := h.GenerateFFmpegCmd()
 	if err != nil {
-		log.Printf("ffmpeg.Run() error: %v", err)
+		return err
+	}
+
+	// Get exec.Cmd
+	cmd, err := ffmpeg.Command()
+	if err != nil {
+		return err
+	}
+
+	// Run
+	cmd.Dir = dir
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	log.Printf("cmd.String(): %s", cmd.String())
+	if err = cmd.Run(); err != nil {
 		return err
 	}
 
