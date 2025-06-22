@@ -62,7 +62,7 @@ func LoadJSON(f string) (*Highlights, error) {
 	return Load(buf)
 }
 
-func (h *Highlights) GenerateFFmpegCmd() (*ffcmd.FFmpeg, error) {
+func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
 	// Create ffmpeg command with output file.
 	ffmpeg := ffcmd.New(h.Out.File, h.Out.FPS, true)
 
@@ -330,7 +330,7 @@ func (h *Highlights) GenerateFFmpegCmd() (*ffcmd.FFmpeg, error) {
 
 func (h *Highlights) Make(dir string, stdout, stderr io.Writer) error {
 	// Generate FFmpeg command.
-	ffmpeg, err := h.GenerateFFmpegCmd()
+	ffmpeg, err := h.FFmpegCmd()
 	if err != nil {
 		return err
 	}
