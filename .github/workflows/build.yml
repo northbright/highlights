@@ -1,0 +1,38 @@
+# https://help.github.com/en/articles/workflow-syntax-for-github-actions
+
+name: Build
+
+on:
+- push
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        go:
+        - "1.24"
+
+      fail-fast: false
+    steps:
+    - name: Install ffmpeg
+      run: |
+        sudo apt update
+        sudo apt install ffmpeg
+
+    - name: Checkout source codes
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Build
+      run: go build -v
+
+    - name: Test
+      run: go test -v ./... && ffprobe examples/good-times-with-maomi-and-mimao/output.mp4
