@@ -64,7 +64,7 @@ func LoadJSON(f string) (*Highlights, error) {
 
 func (h *Highlights) GenerateFFmpegCmd() (*ffcmd.FFmpeg, error) {
 	// Create ffmpeg command with output file.
-	ffmpeg := ffcmd.New(h.Out.File, true)
+	ffmpeg := ffcmd.New(h.Out.File, h.Out.FPS, true)
 
 	// Create op video filterchain.
 	op_v := ffcmd.NewFilterChain("[op_v]")
