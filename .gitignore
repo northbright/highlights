@@ -60,12 +60,17 @@ config.json
 # Media Files
 !*.mp4
 !*.MP4
-!*.MOV
 !*.mov
+!*.MOV
+!*.mkv
+!*.MKV
 !*.mp3
 !*.MP3
 !*.m4a
 !*.M4A
+
+# Ignore output media file
+output.mp4
 
 # SRT
 !*.srt
