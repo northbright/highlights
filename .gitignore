@@ -75,3 +75,9 @@ output.mp4
 # SRT
 !*.srt
 !*.SRT
+
+# Ignore SRT files under examples
+/examples/**/*.srt
+
+# Ignore SRT files under cli
+/cli/**/*.srt
