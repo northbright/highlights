@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 
 	"github.com/northbright/highlights"
@@ -30,8 +31,18 @@ func main() {
 		return
 	}
 
-	if err = h.Make(dir, os.Stdout, os.Stderr); err != nil {
-		log.Printf("h.Make() error: %v", err)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	go func() {
+		<-ctx.Done()
+		fmt.Printf("ctx is done\n")
+	}()
+
+	if err = h.Make(ctx, dir, os.Stdout, os.Stderr); err != nil {
+		fmt.Printf("Make() error: %v\n", err)
+		return
 	}
-	log.Printf("h.Make() succeeded")
+
+	fmt.Printf("Make() succeeded\n")
 }

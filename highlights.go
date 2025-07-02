@@ -1,15 +1,18 @@
 package highlights
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/northbright/ffcmd"
+	"github.com/northbright/timestamp"
 )
 
 type ImageClip struct {
@@ -40,7 +43,9 @@ type Highlights struct {
 	ED    *ImageClip `json:"ed"`
 	Clips []*Clip    `json:"clips"`
 	BGM   string     `json:"bgm"`
-	Out   Output     `json:"output"`
+	// Add rank prefix(No.XX).
+	AddRankPrefix bool   `json:"add_rank_prefix"`
+	Out           Output `json:"output"`
 }
 
 func Load(buf []byte) (*Highlights, error) {
@@ -54,7 +59,7 @@ func Load(buf []byte) (*Highlights, error) {
 }
 
 func LoadJSON(f string) (*Highlights, error) {
-	buf, err := ioutil.ReadFile(f)
+	buf, err := os.ReadFile(f)
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +67,9 @@ func LoadJSON(f string) (*Highlights, error) {
 	return Load(buf)
 }
 
-func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
+func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 	// Create ffmpeg command with output file.
-	ffmpeg := ffcmd.New(h.Out.File, h.Out.FPS, true)
+	ffmpeg := ffcmd.NewFFmpegCmd(h.Out.File, true, ffcmd.FFmpegOutputFPS(h.Out.FPS))
 
 	// Create op video filterchain.
 	op_v := ffcmd.NewFilterChain("[op_v]")
@@ -190,6 +195,8 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
 	// Initialized to 2: op + h.ED.
 	n := 2
 
+	clipNum := len(h.Clips)
+
 	// Loop all video clips.
 	for i, c := range h.Clips {
 		// Create clip video filter chain.
@@ -218,7 +225,7 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
 			atrim := "atrim="
 
 			if c.Start != "" {
-				start, err := ffcmd.NewTimestamp(c.Start)
+				start, err := timestamp.New(c.Start)
 				if err != nil {
 					log.Printf("get start timestamp error: %v", err)
 					return nil, err
@@ -228,7 +235,7 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
 			}
 
 			if c.End != "" {
-				end, err := ffcmd.NewTimestamp(c.End)
+				end, err := timestamp.New(c.End)
 				if err != nil {
 					log.Printf("get end timestamp error: %v", err)
 					return nil, err
@@ -254,7 +261,11 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
 		// Check if need to chain subtitles filter.
 		if c.Subtitle != "" {
 			srtFile := strings.Replace(c.File, filepath.Ext(c.File), ".srt", -1)
-			createCmd, err := ffcmd.NewCreateOneSubSRTCmd(srtFile, c.File, c.Subtitle, c.Start, c.End)
+			text := c.Subtitle
+			if h.AddRankPrefix {
+				text = fmt.Sprintf("No.%d %s", clipNum-i, c.Subtitle)
+			}
+			createCmd, err := ffcmd.NewCreateOneSubSRTCmd(srtFile, c.File, text, c.Start, c.End)
 			if err != nil {
 				log.Printf("ffcmd.NewCreateOneSubSRTCmd() error: %v", err)
 				return nil, err
@@ -328,7 +339,7 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpeg, error) {
 	return ffmpeg, nil
 }
 
-func (h *Highlights) Make(dir string, stdout, stderr io.Writer) error {
+func (h *Highlights) Make(ctx context.Context, dir string, stdout, stderr io.Writer) error {
 	// Generate FFmpeg command.
 	ffmpeg, err := h.FFmpegCmd()
 	if err != nil {
@@ -336,16 +347,27 @@ func (h *Highlights) Make(dir string, stdout, stderr io.Writer) error {
 	}
 
 	// Get exec.Cmd
-	cmd, err := ffmpeg.Command()
+	cmd, err := ffcmd.CommandContext(ctx, ffmpeg)
 	if err != nil {
 		return err
 	}
 
-	// Run
+	// To stop the process and its subprocesses,
+	// request that the process group id be set (Setpgid: true) to the PID of the newly spawned process (Pgid: 0).
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
 	cmd.Dir = dir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	log.Printf("cmd.String(): %s", cmd.String())
+	// cmd.Cancel will run when ctx is done.
+	cmd.Cancel = func() error {
+		// Kill all processes in the group via `kill -9 -$PGID`.
+		// Note the "-" to signal the group.
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+
 	if err = cmd.Run(); err != nil {
 		return err
 	}

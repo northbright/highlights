@@ -1,2 +1,4 @@
-github.com/northbright/ffcmd v0.0.6 h1:RMP+BhjLrDWRhQv6ACtB4vHPNkONRM1E2/RgeHMjmAo=
-github.com/northbright/ffcmd v0.0.6/go.mod h1:ZAm5H/vhdfVTugOM05KkHCynATAIfeRnbnu337nr5Fo=
+github.com/northbright/ffcmd v0.0.10 h1:lA0u0A4IY0XrqrDqERm+PG1tt1pw5AcMhD30hXqNp5U=
+github.com/northbright/ffcmd v0.0.10/go.mod h1:B76WUyztnOIFL/PG+DWrL1rrfX71rIq7xjrL31NiTL8=
+github.com/northbright/timestamp v0.0.1 h1:FI885Xq6Ky/DfRkaozIZyRJ/W6FvMpsr7sAi3dd12Cc=
+github.com/northbright/timestamp v0.0.1/go.mod h1:q63O4mrJxdlWYs0a7z14pW5vwXAgw5w6AmTH3bn8poI=
