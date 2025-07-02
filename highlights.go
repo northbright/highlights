@@ -44,8 +44,8 @@ type Highlights struct {
 	Clips []*Clip    `json:"clips"`
 	BGM   string     `json:"bgm"`
 	// Add rank prefix(No.XX).
-	AddRankPrefix bool   `json:"add_rank_prefix"`
-	Out           Output `json:"output"`
+	AddRankPrefix bool    `json:"add_rank_prefix"`
+	Out           *Output `json:"output"`
 }
 
 func Load(buf []byte) (*Highlights, error) {
@@ -67,137 +67,99 @@ func LoadJSON(f string) (*Highlights, error) {
 	return Load(buf)
 }
 
+func AddImageClip(ffmpeg *ffcmd.FFmpegCmd, concatFC *ffcmd.FilterChain, ic *ImageClip, name string, out *Output) error {
+	if ic.File == "" {
+		return fmt.Errorf("image clip's file is empty")
+	}
+
+	if name == "" {
+		return fmt.Errorf("empty image clip name")
+	}
+
+	fps := fmt.Sprintf("fps=%d", out.FPS)
+	loop := fmt.Sprintf("loop=loop=%d:size=1", ic.Duration*out.FPS)
+	scale := fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease", out.W, out.H)
+	pad := fmt.Sprintf("pad=%d:%d:(ow-iw)/2:(oh-ih)/2", out.W, out.H)
+	setsar := "setsar=1:1"
+	format := "format=pix_fmts=yuv420p"
+
+	// Create video filterchain.
+	v := ffcmd.NewFilterChain(fmt.Sprintf("[%s_v]", name))
+
+	// Add image file as ffmpeg input and get the input index.
+	// Add video stream of "h.OP.jpg"([0:v:0]) as op video chain's input.
+	v.AddInputByID(ffmpeg.AddInput(ic.File), "v", 0)
+
+	// Chain video filters.
+	v.Chain(fps).Chain(loop).Chain(scale).Chain(pad).Chain(setsar).Chain(format)
+
+	// Check if need to chain subtitles filter.
+	if ic.Subtitle != "" {
+		srtFile := strings.Replace(ic.File, filepath.Ext(ic.File), ".srt", -1)
+		createCmd, err := ffcmd.NewCreateOneSubSRTCmdForImageClip(srtFile, ic.Subtitle, float32(ic.Duration))
+		if err != nil {
+			log.Printf("ffcmd.NewCreateOneSubSRTCmdForImageClip() error: %v", err)
+			return err
+		}
+		// Add command to create SRT file as ffmpeg's pre-commands(set-up commmands).
+		ffmpeg.AddPreCmd(createCmd)
+
+		removeCmd, err := ffcmd.NewRemoveOneSubSRTCmd(srtFile)
+		if err != nil {
+			log.Printf("ffcmd.NewRemoveOneSubSRTCmd() error: %v", err)
+			return err
+		}
+		// Add command to remove created file as ffmpeg's post-commands(clean-up commands).
+		ffmpeg.AddPostCmd(removeCmd)
+
+		// Create and chain subtitles filter.
+		subtitles := fmt.Sprintf("subtitles='%s':force_style='Fontsize=%d'", srtFile, ic.FontSize)
+		v.Chain(subtitles)
+	}
+
+	// Chain fade filter.
+	fade := fmt.Sprintf("fade=t=out:st=%d:d=%d", ic.Duration-ic.FadeOutDuration, ic.FadeOutDuration)
+	v.Chain(fade)
+
+	// Create audio filterchain.
+	a := ffcmd.NewFilterChain(fmt.Sprintf("[%s_a]", name))
+
+	// Create audio fiters.
+	aevalsrc := fmt.Sprintf("aevalsrc=0:d=%d", ic.Duration)
+
+	// Chain audio filters.
+	a.Chain(aevalsrc)
+
+	// Add video / audio filterchain to filtergraph.
+	ffmpeg.Chain(v)
+	ffmpeg.Chain(a)
+
+	// Add image clip's video and audio filterchain's output as concat filterchain's input.
+	concatFC.AddInputByOutput(v, 0)
+	concatFC.AddInputByOutput(a, 0)
+
+	return nil
+}
+
 func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 	// Create ffmpeg command with output file.
 	ffmpeg := ffcmd.NewFFmpegCmd(h.Out.File, true, ffcmd.FFmpegOutputFPS(h.Out.FPS))
 
-	// Create op video filterchain.
-	op_v := ffcmd.NewFilterChain("[op_v]")
-
-	// Add "h.OP.jpg" as ffmpeg input and get the input index.
-	// Add video stream of "h.OP.jpg"([0:v:0]) as op video chain's input.
-	op_v.AddInputByID(ffmpeg.AddInput(h.OP.File), "v", 0)
-
-	// Create op video filters.
-	fps := fmt.Sprintf("fps=%d", h.Out.FPS)
-	loop := fmt.Sprintf("loop=loop=%d:size=1", h.OP.Duration*h.Out.FPS)
-	scale := fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease", h.Out.W, h.Out.H)
-	pad := fmt.Sprintf("pad=%d:%d:(ow-iw)/2:(oh-ih)/2", h.Out.W, h.Out.H)
-	setsar := "setsar=1:1"
-	format := "format=pix_fmts=yuv420p"
-
-	// Chain op video filters.
-	op_v.Chain(fps).Chain(loop).Chain(scale).Chain(pad).Chain(setsar).Chain(format)
-
-	// Check if need to chain subtitles filter.
-	if h.OP.Subtitle != "" {
-		srtFile := strings.Replace(h.OP.File, filepath.Ext(h.OP.File), ".srt", -1)
-		createCmd, err := ffcmd.NewCreateOneSubSRTCmdForImageClip(srtFile, h.OP.Subtitle, float32(h.OP.Duration))
-		if err != nil {
-			log.Printf("ffcmd.NewCreateOneSubSRTCmdForImageClip() error: %v", err)
-			return nil, err
-		}
-		// Add command to create SRT file as ffmpeg's pre-commands(set-up commmands).
-		ffmpeg.AddPreCmd(createCmd)
-
-		removeCmd, err := ffcmd.NewRemoveOneSubSRTCmd(srtFile)
-		if err != nil {
-			log.Printf("ffcmd.NewRemoveOneSubSRTCmd() error: %v", err)
-			return nil, err
-		}
-		// Add command to remove created file as ffmpeg's post-commands(clean-up commands).
-		ffmpeg.AddPostCmd(removeCmd)
-
-		// Create and chain subtitles filter.
-		subtitles := fmt.Sprintf("subtitles='%s':force_style='Fontsize=%d'", srtFile, h.OP.FontSize)
-		op_v.Chain(subtitles)
-	}
-
-	// Chain fade filter.
-	fade := fmt.Sprintf("fade=t=out:st=%d:d=%d", h.OP.Duration-h.OP.FadeOutDuration, h.OP.FadeOutDuration)
-	op_v.Chain(fade)
-
-	// Create op audio filterchain.
-	op_a := ffcmd.NewFilterChain("[op_a]")
-
-	// Create op audio fiters.
-	aevalsrc := fmt.Sprintf("aevalsrc=0:d=%d", h.OP.Duration)
-
-	// Chain ed audio filters.
-	op_a.Chain(aevalsrc)
-
-	// Add op video / audio filterchain to filtergraph.
-	ffmpeg.Chain(op_v)
-	ffmpeg.Chain(op_a)
-
-	// Create ed video filterchain.
-	ed_v := ffcmd.NewFilterChain("[ed_v]")
-
-	// Add "h.ED.jpg" as ffmpeg input and get the input index.
-	// Add video stream of "h.ED.jpg"([1:v:0]) as ed's input.
-	ed_v.AddInputByID(ffmpeg.AddInput(h.ED.File), "v", 0)
-
-	// Create ed video filters.
-	loop = fmt.Sprintf("loop=loop=%d:size=1", h.ED.Duration*h.Out.FPS)
-
-	// Chain ed video filters.
-	ed_v.Chain(fps).Chain(loop).Chain(scale).Chain(pad).Chain(setsar).Chain(format)
-
-	// Check if need to chain subtitles filter.
-	if h.ED.Subtitle != "" {
-		srtFile := strings.Replace(h.ED.File, filepath.Ext(h.ED.File), ".srt", -1)
-		createCmd, err := ffcmd.NewCreateOneSubSRTCmdForImageClip(srtFile, h.ED.Subtitle, float32(h.ED.Duration))
-		if err != nil {
-			log.Printf("ffcmd.NewCreateOneSubSRTCmdForImageClip() error: %v", err)
-			return nil, err
-		}
-		// Add command to create SRT file as ffmpeg's pre-commands(set-up commmands).
-		ffmpeg.AddPreCmd(createCmd)
-
-		removeCmd, err := ffcmd.NewRemoveOneSubSRTCmd(srtFile)
-		if err != nil {
-			log.Printf("ffcmd.NewRemoveOneSubSRTCmd() error: %v", err)
-			return nil, err
-		}
-		// Add command to remove created file as ffmpeg's post-commands(clean-up commands).
-		ffmpeg.AddPostCmd(removeCmd)
-
-		// Create and chain subtitles filter.
-		subtitles := fmt.Sprintf("subtitles='%s':force_style='Fontsize=%d'", srtFile, h.ED.FontSize)
-		ed_v.Chain(subtitles)
-	}
-
-	// Chain fade filter.
-	fade = fmt.Sprintf("fade=t=out:st=%d:d=%d", h.ED.Duration-h.ED.FadeOutDuration, h.ED.FadeOutDuration)
-	ed_v.Chain(fade)
-
-	// Create audio filterchain.
-	ed_a := ffcmd.NewFilterChain("[ed_a]")
-
-	// Create ed audio fiters.
-	aevalsrc = fmt.Sprintf("aevalsrc=0:d=%d", h.ED.Duration)
-
-	// Chain ed audio filters.
-	ed_a.Chain(aevalsrc)
-
-	// Add ed video / audio filterchain to filtergraph.
-	ffmpeg.Chain(ed_v)
-	ffmpeg.Chain(ed_a)
-
 	// Create concat filter chain.
 	concatFC := ffcmd.NewFilterChain("[outv]", "[outa]")
 
-	// Add op video and audio filterchain's output as concat filterchain's input.
-	concatFC.AddInputByOutput(op_v, 0)
-	concatFC.AddInputByOutput(op_a, 0)
-
 	// Segments count to concat.
-	// Initialized to 2: op + h.ED.
-	n := 2
+	n := 0
+
+	// Add OP.
+	if err := AddImageClip(ffmpeg, concatFC, h.OP, "op", h.Out); err != nil {
+		return nil, fmt.Errorf("Add OP error: %v", err)
+	}
+	n += 1
 
 	clipNum := len(h.Clips)
 
-	// Loop all video clips.
+	// Add video clips.
 	for i, c := range h.Clips {
 		// Create clip video filter chain.
 		clip_v := ffcmd.NewFilterChain(fmt.Sprintf("[clip_%02d_v]", i))
@@ -298,9 +260,11 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 		n += 1
 	}
 
-	// Add ed video and audio filterchain's output as concat filterchain's input.
-	concatFC.AddInputByOutput(ed_v, 0)
-	concatFC.AddInputByOutput(ed_a, 0)
+	// Add ED.
+	if err := AddImageClip(ffmpeg, concatFC, h.ED, "ed", h.Out); err != nil {
+		return nil, fmt.Errorf("Add ED error: %v", err)
+	}
+	n += 1
 
 	// Create concat filters.
 	concat := fmt.Sprintf("concat=n=%d:v=1:a=1", n)
