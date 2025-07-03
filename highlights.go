@@ -87,7 +87,7 @@ func AddImageClip(ffmpeg *ffcmd.FFmpegCmd, concatFC *ffcmd.FilterChain, ic *Imag
 	v := ffcmd.NewFilterChain(fmt.Sprintf("[%s_v]", name))
 
 	// Add image file as ffmpeg input and get the input index.
-	// Add video stream of "h.OP.jpg"([0:v:0]) as op video chain's input.
+	// Add video stream of image([0:v:0]) as video filterchain's input.
 	v.AddInputByID(ffmpeg.AddInput(ic.File), "v", 0)
 
 	// Chain video filters.
