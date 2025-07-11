@@ -222,7 +222,7 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 			if c.Start != "" {
 				start, err := timestamp.New(c.Start)
 				if err != nil {
-					log.Printf("get start timestamp error: %v", err)
+					log.Printf("get start timestamp error: %v, c.Start = %s", err, c.Start)
 					return nil, err
 				}
 				trim += fmt.Sprintf("start=%s:", start.SecondStr())
@@ -232,7 +232,7 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 			if c.End != "" {
 				end, err := timestamp.New(c.End)
 				if err != nil {
-					log.Printf("get end timestamp error: %v", err)
+					log.Printf("get end timestamp error: %v, c.End = %s", err, c.End)
 					return nil, err
 				}
 				trim += fmt.Sprintf("end=%s", end.SecondStr())
