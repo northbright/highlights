@@ -28,6 +28,9 @@
         "file": "output.mp4",
         "w":    720,
         "h":    960,
-        "fps":  30
+        "fps":  30,
+        "encoder": "libx265",
+        "crf": 28,
+        "preset": "medium"
     }
 }
