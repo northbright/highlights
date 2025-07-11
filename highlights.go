@@ -469,7 +469,7 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 
 	str, _ := h.ffmpeg.String()
 
-	log.Printf("********* str:\n%s", str)
+	log.Printf("********* ffmpeg command ********\n%s", str)
 
 	return h.ffmpeg, nil
 }
