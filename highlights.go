@@ -209,7 +209,8 @@ func (h *Highlights) addImageClip(ic *ImageClip, name string) error {
 
 	// Check if need to chain subtitles filter.
 	if ic.Subtitle != "" {
-		srtFile := strings.Replace(ic.File, filepath.Ext(ic.File), ".srt", -1)
+		srtFile := strings.Replace(filepath.Base(ic.File), filepath.Ext(ic.File), ".srt", -1)
+		srtFile = filepath.Join(os.TempDir(), srtFile)
 		createCmd, err := ffcmd.NewCreateOneSubSRTCmdForImageClip(srtFile, ic.Subtitle, float32(ic.Duration))
 		if err != nil {
 			log.Printf("ffcmd.NewCreateOneSubSRTCmdForImageClip() error: %v", err)
@@ -337,7 +338,8 @@ func (h *Highlights) FFmpegCmd() (*ffcmd.FFmpegCmd, error) {
 
 		// Check if need to chain subtitles filter.
 		if c.Subtitle != "" {
-			srtFile := strings.Replace(c.File, filepath.Ext(c.File), ".srt", -1)
+			srtFile := strings.Replace(filepath.Base(c.File), filepath.Ext(c.File), ".srt", -1)
+			srtFile = filepath.Join(os.TempDir(), srtFile)
 			text := c.Subtitle
 			if h.AddRankPrefix {
 				text = fmt.Sprintf("No.%d %s", clipNum-i, c.Subtitle)
